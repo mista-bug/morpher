@@ -22,9 +22,17 @@ func main() {
 }
 
 func Routes(port string) {
-	// health check
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		Init(w, r)
+	})
+
+	http.HandleFunc("/fullHelp", func(w http.ResponseWriter, r *http.Request) {
+		sendResponse(lookupFull(), w)
+	})
+
+	http.HandleFunc("/help", func(w http.ResponseWriter, r *http.Request) {
+		sendResponse(lookup(), w)
 	})
 }
 
@@ -79,37 +87,36 @@ func createFake(body map[string]any) (map[string]any, error) {
 		case string:
 			fakeValue, err := parseKey(keywordValue)
 			if err != nil {
-				errorMessage := fmt.Sprintf("Keyword %s is not supported", keywordValue)
-				return nil, fmt.Errorf(errorMessage)
+				return nil, fmt.Errorf("Keyword %s is not supported", keywordValue)
 			}
 
 			fakeData[k] = fakeValue
 
 		default:
-			errorMessage := fmt.Sprintf("Keyword %s is not supported", keywordValue)
-			return nil, fmt.Errorf(errorMessage)
+			return nil, fmt.Errorf("Keyword %s is not supported", keywordValue)
 		}
 	}
 
 	return fakeData, nil
 }
 
-func parseKey(key string) (any, error) {
+func parseKey(key string) (string, error) {
 	key = strings.ToLower(key)
+	formattedKey := fmt.Sprintf("{%s}", key)
+	return gofakeit.Generate(formattedKey)
+}
 
-	switch key {
-	case "firstname":
-		return gofakeit.FirstName(), nil
-	case "lastname":
-		return gofakeit.LastName(), nil
-	case "number":
-		return gofakeit.Number(0, 50), nil
-	case "address":
-		return gofakeit.Address(), nil
-	default:
-		// gofakeit.Generate()
-		// gofakeit.FuncLookups()
-		return nil, fmt.Errorf("Keyword %s is not supported", key)
+func lookupFull() map[string]gofakeit.Info {
+	return gofakeit.FuncLookups
+}
+
+func lookup() map[string]string {
+	lookups := make(map[string]string)
+	lookupJson := gofakeit.FuncLookups
+
+	for k, v := range lookupJson {
+		lookups[k] = v.Description
 	}
 
+	return lookups
 }
