@@ -5,23 +5,49 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/brianvoe/gofakeit/v7"
+	"github.com/joho/godotenv"
 )
 
-func main() {
-	port := ":6767"
-	Routes(port)
+type MorphRequestBody struct {
+	Count int
+	Body  map[string]any
+}
 
+type LookupRowShort struct {
+	Description string `json:"description"`
+	Example     string `json:"example"`
+}
+
+func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
+	var port string
+	port = fmt.Sprintf(":%s", os.Getenv("PORT"))
+	if port == "" {
+		port = ":8080"
+	}
+
+	routes()
 	log.Printf("Running %s \n", port)
-	err := http.ListenAndServe(port, nil)
+	err = http.ListenAndServe(port, nil)
 	if err != nil {
 		log.Fatalf("Error starting %s", port)
 	}
 }
 
-func Routes(port string) {
+func routes() {
+
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte{})
+	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		Init(w, r)
@@ -61,9 +87,14 @@ func Init(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for i := 0; i < count; i++ {
+	morphRequest := MorphRequestBody{
+		Count: count,
+		Body:  body,
+	}
+
+	for i := 0; i < morphRequest.Count; i++ {
 		//parse keywords inside body
-		fakeData, err := createFake(body)
+		fakeData, err := createFake(morphRequest.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
@@ -110,12 +141,15 @@ func lookupFull() map[string]gofakeit.Info {
 	return gofakeit.FuncLookups
 }
 
-func lookup() map[string]string {
-	lookups := make(map[string]string)
+func lookup() map[string]LookupRowShort {
+	lookups := make(map[string]LookupRowShort)
 	lookupJson := gofakeit.FuncLookups
 
 	for k, v := range lookupJson {
-		lookups[k] = v.Description
+		lookups[k] = LookupRowShort{
+			Description: v.Description,
+			Example:     v.Example,
+		}
 	}
 
 	return lookups
